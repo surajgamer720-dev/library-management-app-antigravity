@@ -39,8 +39,8 @@ export default function MemberDashboard() {
         ))}
         
         <Card className="bg-card/50 backdrop-blur-md border-border/50 shadow-sm flex items-center justify-center p-6">
-           <Button className="w-full" variant="outline" asChild>
-             <a href="/member/catalog">Browse Catalog</a>
+           <Button className="w-full" variant="outline" render={<a href="/member/catalog" />}>
+             Browse Catalog
            </Button>
         </Card>
       </div>
