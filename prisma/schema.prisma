@@ -1,0 +1,126 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// User Model (Handles both Admins and Members)
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  password      String?   // Hashed if using credentials
+  role          Role      @default(MEMBER)
+  image         String?
+  digitalCardId String    @unique @default(uuid()) // Scannable ID
+  totalFines    Float     @default(0.0)
+  createdAt     DateTime  @default(now())
+  
+  accounts      Account[]
+  sessions      Session[]
+  loans         Loan[]
+  reservations  Reservation[]
+}
+
+model Account {
+  id                 String  @id @default(cuid())
+  userId             String
+  type               String
+  provider           String
+  providerAccountId  String
+  refresh_token      String?  @db.Text
+  access_token       String?  @db.Text
+  expires_at         Int?
+  token_type         String?
+  scope              String?
+  id_token           String?  @db.Text
+  session_state      String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+enum Role {
+  ADMIN
+  MEMBER
+}
+
+// Book Model
+model Book {
+  id              String    @id @default(cuid())
+  title           String
+  author          String
+  isbn            String    @unique
+  category        String
+  shelfLocation   String
+  coverImage      String?
+  totalCopies     Int
+  availableCopies Int
+  createdAt       DateTime  @default(now())
+
+  loans           Loan[]
+  reservations    Reservation[]
+}
+
+// Loan Model (Tracks Issued & Returned Books)
+model Loan {
+  id          String     @id @default(cuid())
+  userId      String
+  bookId      String
+  issueDate   DateTime   @default(now())
+  dueDate     DateTime
+  returnDate  DateTime?
+  status      LoanStatus @default(ISSUED)
+  fineAmount  Float      @default(0.0)
+
+  user        User       @relation(fields: [userId], references: [id])
+  book        Book       @relation(fields: [bookId], references: [id])
+}
+
+enum LoanStatus {
+  ISSUED
+  RETURNED
+  OVERDUE
+}
+
+// Reservation Model (Holds/Waitlist)
+model Reservation {
+  id          String            @id @default(cuid())
+  userId      String
+  bookId      String
+  requestDate DateTime          @default(now())
+  status      ReservationStatus @default(PENDING)
+
+  user        User              @relation(fields: [userId], references: [id])
+  book        Book              @relation(fields: [bookId], references: [id])
+}
+
+enum ReservationStatus {
+  PENDING
+  FULFILLED
+  CANCELLED
+}
