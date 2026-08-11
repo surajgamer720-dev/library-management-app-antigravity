@@ -2,10 +2,12 @@ import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { PrismaClient } from "../generated/prisma/client";
+import { PrismaPg } from "@prisma/adapter-pg";
 import bcrypt from "bcryptjs";
 
 // Initialize Prisma Client
-const prisma = new PrismaClient({} as any);
+const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
+const prisma = new PrismaClient({ adapter });
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma) as any, // Type casting for next-auth v4 compatibility
