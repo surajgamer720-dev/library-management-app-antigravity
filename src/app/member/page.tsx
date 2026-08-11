@@ -1,26 +1,43 @@
-"use client"
-
+import { getServerSession } from "next-auth/next"
+import { authOptions } from "@/lib/auth"
+import { prisma } from "@/lib/prisma"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { BookOpen, Calendar, AlertCircle } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 
-const mockIssuedBooks = [
-  { id: "1", title: "The Martian", author: "Andy Weir", issueDate: "2023-10-01", dueDate: "2023-10-15", status: "ISSUED" },
-  { id: "2", title: "Atomic Habits", author: "James Clear", issueDate: "2023-09-20", dueDate: "2023-10-04", status: "OVERDUE" },
-]
+export default async function MemberDashboard() {
+  const session = await getServerSession(authOptions)
+  
+  if (!session?.user) {
+    return <div>Please log in</div>
+  }
 
-export default function MemberDashboard() {
+  const userId = (session.user as any).id;
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    include: {
+      loans: {
+        include: { book: true },
+        orderBy: { issueDate: 'desc' }
+      }
+    }
+  });
+
+  if (!user) return <div>User not found</div>
+
+  const activeLoans = user.loans.filter(l => l.status !== 'RETURNED');
+  
   const stats = [
-    { title: "Books Borrowed", value: "2", icon: BookOpen },
-    { title: "Pending Fines", value: "$15.00", icon: AlertCircle, color: "text-destructive" },
+    { title: "Books Borrowed", value: activeLoans.length.toString(), icon: BookOpen },
+    { title: "Pending Fines", value: `$${user.totalFines.toFixed(2)}`, icon: AlertCircle, color: "text-destructive" },
   ]
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
       <div className="flex flex-col gap-2">
         <h1 className="text-3xl font-bold tracking-tight">My Dashboard</h1>
-        <p className="text-muted-foreground">Welcome back, Alice! Here is your current library status.</p>
+        <p className="text-muted-foreground">Welcome back, {user.name}! Here is your current library status.</p>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -39,7 +56,7 @@ export default function MemberDashboard() {
         ))}
         
         <Card className="bg-card/50 backdrop-blur-md border-border/50 shadow-sm flex items-center justify-center p-6">
-           <Button className="w-full" variant="outline" render={<a href="/member/catalog" />}>
+           <Button className="w-full" variant="outline">
              Browse Catalog
            </Button>
         </Card>
@@ -47,31 +64,34 @@ export default function MemberDashboard() {
 
       <div className="mt-6">
         <h2 className="text-xl font-semibold mb-4">Currently Borrowed</h2>
-        <div className="grid gap-4 md:grid-cols-2">
-          {mockIssuedBooks.map(book => (
-            <Card key={book.id} className={`bg-card/50 backdrop-blur-md border-border/50 shadow-sm relative overflow-hidden ${book.status === 'OVERDUE' ? 'border-destructive/30' : ''}`}>
-              {book.status === "OVERDUE" && (
-                <div className="absolute top-0 right-0 w-16 h-16 pointer-events-none">
-                   <div className="absolute transform rotate-45 bg-destructive text-destructive-foreground text-[10px] font-bold py-1 right-[-35px] top-[15px] w-[120px] text-center shadow-sm">
-                      OVERDUE
-                   </div>
-                </div>
-              )}
-              <CardHeader className="pb-2">
-                <CardTitle className="text-lg">{book.title}</CardTitle>
-                <CardDescription>{book.author}</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex justify-between items-center text-sm mt-4">
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Calendar className="w-4 h-4" /> Due: {book.dueDate}
+        {activeLoans.length === 0 ? (
+          <p className="text-muted-foreground">You do not have any active book loans.</p>
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2">
+            {activeLoans.map(loan => (
+              <Card key={loan.id} className={`bg-card/50 backdrop-blur-md border-border/50 shadow-sm relative overflow-hidden ${loan.status === 'OVERDUE' ? 'border-destructive/30' : ''}`}>
+                {loan.status === "OVERDUE" && (
+                  <div className="absolute top-0 right-0 w-16 h-16 pointer-events-none">
+                     <div className="absolute transform rotate-45 bg-destructive text-destructive-foreground text-[10px] font-bold py-1 right-[-35px] top-[15px] w-[120px] text-center shadow-sm">
+                        OVERDUE
+                     </div>
                   </div>
-                  <Button variant="secondary" size="sm">Renew</Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                )}
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-lg">{loan.book.title}</CardTitle>
+                  <CardDescription>{loan.book.author}</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex justify-between items-center text-sm mt-4">
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Calendar className="w-4 h-4" /> Due: {new Date(loan.dueDate).toLocaleDateString()}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )
