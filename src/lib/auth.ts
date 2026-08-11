@@ -5,7 +5,7 @@ import { PrismaClient } from "../generated/prisma/client";
 import bcrypt from "bcryptjs";
 
 // Initialize Prisma Client
-const prisma = new PrismaClient();
+const prisma = new PrismaClient({} as any);
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma) as any, // Type casting for next-auth v4 compatibility
